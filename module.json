@@ -2,7 +2,7 @@
   "id": "pf1-dying-house-rules",
   "title": "PF1E 濒死与死门房规",
   "description": "半自动实现濒死计数、治疗量计算。默认关闭，可在角色卡上单独启用。",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "compatibility": {
     "minimum": "12",
     "verified": "13"
