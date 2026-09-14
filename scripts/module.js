@@ -61,7 +61,6 @@ function getClassEntries(actor) {
 
 /**
  * 总等级（多路径回退）
- * 优先 details.level，其次 hd.total，最后从职业累加
  */
 function getActorLevel(actor) {
   const candidates = [
@@ -269,7 +268,11 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     const val = parseInt(e.currentTarget.dataset.count) || 0;
     await actor.setFlag(MODULE_ID, "dyingCount", val);
     await actor.setFlag(MODULE_ID, "stabilized", false);
-    if (val < 3) await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
+    if (val < 3) {
+      await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
+    } else {
+      await actor.setFlag(MODULE_ID, "deathsDoorRounds", 1);
+    }
     if (!isInDying(actor)) await actor.setFlag(MODULE_ID, "inDying", true);
     updatePanelUI($panel, actor);
     if (val >= 3 && (game.user.isGM || actor.isOwner)) {
@@ -295,7 +298,7 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     await actor.setFlag(MODULE_ID, "inDying", true);
     await actor.setFlag(MODULE_ID, "dyingCount", initial);
     await actor.setFlag(MODULE_ID, "stabilized", false);
-    await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
+    await actor.setFlag(MODULE_ID, "deathsDoorRounds", initial >= 3 ? 1 : 0);
     updatePanelUI($panel, actor);
     ui.notifications.info(`初始濒死计数：${initial}`);
   });
@@ -312,7 +315,7 @@ async function enterDying(actor) {
   await actor.setFlag(MODULE_ID, "inDying", true);
   await actor.setFlag(MODULE_ID, "dyingCount", initial);
   await actor.setFlag(MODULE_ID, "stabilized", false);
-  await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
+  await actor.setFlag(MODULE_ID, "deathsDoorRounds", initial >= 3 ? 1 : 0);
 
   let extra = "";
   if (initial >= 3) extra = "（计数达 3，进入死门）";
@@ -448,12 +451,9 @@ async function applyHeal(actor, heal) {
 }
 
 /* ============================================================
- * 死门豁免 —— 发聊天卡片
+ * 死门 DC 计算
  * ============================================================ */
 
-/**
- * 计算死门 DC 和公式明细
- */
 function getDeathsDoorDC(actor, rounds) {
   const totalLevel = getActorLevel(actor);
   const hdHalf = Math.floor(totalLevel / 2);
@@ -462,12 +462,16 @@ function getDeathsDoorDC(actor, rounds) {
   return { dc, totalLevel, hdHalf, rounds, detail };
 }
 
+/* ============================================================
+ * 死门聊天卡片
+ * ============================================================ */
+
 async function postDeathsDoorCard(actor) {
-  const rounds = actor.getFlag(MODULE_ID, "deathsDoorRounds") ?? 0;
+  const rounds = actor.getFlag(MODULE_ID, "deathsDoorRounds") ?? 1;
   const info = getDeathsDoorDC(actor, rounds);
 
   const content = `
-    <div class="pf1-dying-door-card" data-actor-id="${actor.id}" data-dc="${info.dc}" data-round="${info.rounds + 1}">
+    <div class="pf1-dying-door-card" data-actor-id="${actor.id}" data-dc="${info.dc}" data-round="${info.rounds}">
       <p class="pf1-dying-door-title">
         <strong>${actor.name}</strong> 处于 <span class="door-mark">死门</span>
       </p>
@@ -476,7 +480,7 @@ async function postDeathsDoorCard(actor) {
         <span class="dc-formula" title="${info.detail}">（${info.detail}）</span>
       </p>
       <p class="pf1-dying-door-info" style="color:#888;font-size:11px;">
-        第 ${info.rounds + 1} 轮
+        第 ${info.rounds} 轮死门豁免
       </p>
       <button type="button" class="pf1-dying-roll-save">
         <i class="fas fa-dice-d20"></i> 掷骰
@@ -512,7 +516,8 @@ Hooks.on("renderChatMessage", (message, html, data) => {
       return;
     }
 
-    await actor.setFlag(MODULE_ID, "deathsDoorRounds", round);
+    // 本次豁免完成后，轮数 +1
+    await actor.setFlag(MODULE_ID, "deathsDoorRounds", round + 1);
 
     try {
       if (typeof actor.rollSavingThrow === "function") {
@@ -567,6 +572,12 @@ Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
       const newCount = count + 1;
       await actor.setFlag(MODULE_ID, "dyingCount", newCount);
       const enteredDoor = newCount >= 3;
+
+      // 进入死门时把轮数初始化为 1
+      if (enteredDoor) {
+        await actor.setFlag(MODULE_ID, "deathsDoorRounds", 1);
+      }
+
       ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor }),
         content: `<p><strong>${actor.name}</strong> 濒死恶化：${count} → <strong>${newCount}</strong>${enteredDoor ? "（<span style='color:#b00;'>进入死门！</span>）" : ""}</p>`
@@ -630,7 +641,7 @@ Hooks.once("ready", () => {
     console.log("职业条目:", getClassEntries(actor));
     const info = getHealThresholdInfo(actor);
     console.log("治疗阈值:", info.total, "|", info.details);
-    const rounds = actor.getFlag(MODULE_ID, "deathsDoorRounds") ?? 0;
+    const rounds = actor.getFlag(MODULE_ID, "deathsDoorRounds") ?? 1;
     const dcInfo = getDeathsDoorDC(actor, rounds);
     console.log("死门DC:", dcInfo.dc, "|", dcInfo.detail);
   };
