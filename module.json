@@ -4,7 +4,7 @@
   "description": "半自动实现濒死计数、治疗量计算。默认关闭，可在角色卡上单独启用。",
   "version": "1.0.0",
   "compatibility": {
-    "minimum": "13",
+    "minimum": "12",
     "verified": "13"
   },
   "authors": [{ "name": "房规模块" }],
