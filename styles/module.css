@@ -134,13 +134,11 @@
 .pf1-dying-panel .pf1-dying-status[data-state="0"]     { background: #e5e5e5 !important; color: #666 !important; }
 .pf1-dying-panel .pf1-dying-status[data-state="dying"] { background: #e08a00 !important; color: #fff !important; }
 
-/* 死门徽章：未稳定红脉冲 */
 .pf1-dying-panel .pf1-dying-status[data-state="door"] {
   background: #b00000 !important;
   color: #fff !important;
   animation: pf1-dying-pulse 1s ease-in-out infinite;
 }
-/* 死门徽章：已稳定绿 */
 .pf1-dying-panel[data-stabilized="true"] .pf1-dying-status[data-state="door"] {
   background: #2a7 !important;
   color: #fff !important;
@@ -205,7 +203,6 @@
   border-color: #b00000 !important;
   animation: pf1-dying-pulse 1s ease-in-out infinite;
 }
-/* 稳定后"死门"按钮也变绿 */
 .pf1-dying-panel[data-stabilized="true"] .dying-count-btn.dying-count-door.active {
   background: #2a7 !important;
   border-color: #2a7 !important;
