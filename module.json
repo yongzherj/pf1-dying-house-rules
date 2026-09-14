@@ -10,5 +10,8 @@
   "authors": [{ "name": "房规模块" }],
   "esmodules": ["scripts/module.js"],
   "styles": ["styles/module.css"],
-  "system": ["pf1"]
+  "system": ["pf1"],
+  "url": "https://github.com/yongzherj/pf1-dying-house-rules",
+  "manifest": "https://raw.githubusercontent.com/yongzherj/pf1-dying-house-rules/main/module.json",
+  "download": "https://github.com/yongzherj/pf1-dying-house-rules/archive/refs/heads/main.zip"
 }
