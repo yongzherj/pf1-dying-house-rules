@@ -1,0 +1,66 @@
+.pf1-dying-panel {
+  border: 1px solid #7a3b3b;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 0 0 6px 0;
+  background: rgba(122, 59, 59, 0.08);
+  font-size: 13px;
+}
+
+.pf1-dying-header {
+  margin-bottom: 4px;
+}
+
+.pf1-dying-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+  color: #7a3b3b;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pf1-dying-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pf1-dying-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pf1-dying-label {
+  min-width: 70px;
+  color: #666;
+}
+
+.pf1-dying-value {
+  color: #333;
+}
+
+.dying-count-input {
+  width: 50px;
+  text-align: center;
+}
+
+.pf1-dying-state {
+  color: #b33;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.pf1-dying-actions {
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pf1-dying-actions button {
+  flex: 1;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
