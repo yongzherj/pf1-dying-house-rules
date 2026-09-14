@@ -1,5 +1,5 @@
 /* ============================================================
-   濒死房规面板 —— 两行紧凑布局
+   濒死房规面板
    ============================================================ */
 
 .pf1-dying-panel,
@@ -26,30 +26,37 @@
   font-size: 11px;
   line-height: 1.3;
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
-  grid-row: auto !important;
+  position: relative;
   overflow: hidden;
 }
 
-/* 父级 grid/flex 不拉伸 */
-.pf1-dying-panel {
-  position: relative;
-}
-
-/* 未启用：只显示开关行 */
+/* 未启用 */
 .pf1-dying-panel[data-enabled="false"] .pf1-dying-info,
 .pf1-dying-panel[data-enabled="false"] .pf1-dying-row-2 {
   display: none !important;
 }
 
+/* 濒死：橙色 */
 .pf1-dying-panel[data-state="dying"][data-enabled="true"] {
   background: rgba(200, 120, 0, 0.12);
   border-color: #c87000;
 }
-.pf1-dying-panel[data-state="door"][data-enabled="true"] {
+
+/* 死门 · 未稳定：红色脉冲 */
+.pf1-dying-panel[data-state="door"][data-enabled="true"][data-stabilized="false"] {
   background: rgba(180, 0, 0, 0.15);
   border-color: #b00000;
   animation: pf1-dying-pulse 1.4s ease-in-out infinite;
 }
+
+/* 死门 · 已稳定：绿色安静 */
+.pf1-dying-panel[data-state="door"][data-enabled="true"][data-stabilized="true"] {
+  background: rgba(30, 160, 100, 0.10);
+  border-color: #2a7;
+  box-shadow: 0 0 4px rgba(30, 160, 100, 0.35);
+  animation: none;
+}
+
 @keyframes pf1-dying-pulse {
   0%, 100% { box-shadow: 0 0 3px rgba(180, 0, 0, 0.5); }
   50%      { box-shadow: 0 0 12px rgba(180, 0, 0, 0.9); }
@@ -126,10 +133,19 @@
 }
 .pf1-dying-panel .pf1-dying-status[data-state="0"]     { background: #e5e5e5 !important; color: #666 !important; }
 .pf1-dying-panel .pf1-dying-status[data-state="dying"] { background: #e08a00 !important; color: #fff !important; }
+
+/* 死门徽章：未稳定红脉冲 */
 .pf1-dying-panel .pf1-dying-status[data-state="door"] {
   background: #b00000 !important;
   color: #fff !important;
   animation: pf1-dying-pulse 1s ease-in-out infinite;
+}
+/* 死门徽章：已稳定绿 */
+.pf1-dying-panel[data-stabilized="true"] .pf1-dying-status[data-state="door"] {
+  background: #2a7 !important;
+  color: #fff !important;
+  animation: none !important;
+  box-shadow: none !important;
 }
 
 /* 第二行 */
@@ -189,6 +205,13 @@
   border-color: #b00000 !important;
   animation: pf1-dying-pulse 1s ease-in-out infinite;
 }
+/* 稳定后"死门"按钮也变绿 */
+.pf1-dying-panel[data-stabilized="true"] .dying-count-btn.dying-count-door.active {
+  background: #2a7 !important;
+  border-color: #2a7 !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
 
 .pf1-dying-panel .dying-act {
   border: 1px solid #7a3b3b !important;
@@ -246,15 +269,21 @@
   font-weight: bold;
 }
 .pf1-dying-door-card .pf1-dying-door-info {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: 12px;
 }
 .pf1-dying-door-card .pf1-dying-door-info b {
   color: #b00000;
   font-size: 14px;
 }
+.pf1-dying-door-card .dc-formula {
+  color: #888;
+  font-size: 11px;
+  cursor: help;
+}
 .pf1-dying-door-card .pf1-dying-roll-save {
   display: inline-block;
+  margin-top: 4px;
   padding: 4px 12px;
   font-size: 12px;
   font-weight: bold;
