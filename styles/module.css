@@ -1,176 +1,213 @@
 /* ============================================================
-   面板
+   濒死房规面板 —— 两行紧凑布局
    ============================================================ */
+
+.pf1-dying-panel,
+.pf1-dying-panel * {
+  box-sizing: border-box;
+}
+
 .pf1-dying-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: 4px 0;
-  padding: 5px 7px;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  margin: 4px 0 !important;
+  padding: 4px 6px !important;
   border: 1px solid rgba(122, 59, 59, 0.4);
   border-radius: 3px;
   background: rgba(122, 59, 59, 0.05);
   font-size: 11px;
   line-height: 1.3;
-  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
-.pf1-dying-panel[data-state="dying"] {
+.pf1-dying-panel[data-state="dying"][data-enabled="true"] {
   background: rgba(200, 120, 0, 0.12);
   border-color: #c87000;
 }
-.pf1-dying-panel[data-state="door"] {
+.pf1-dying-panel[data-state="door"][data-enabled="true"] {
   background: rgba(180, 0, 0, 0.15);
   border-color: #b00000;
   animation: pf1-dying-pulse 1.4s ease-in-out infinite;
 }
 @keyframes pf1-dying-pulse {
   0%, 100% { box-shadow: 0 0 3px rgba(180, 0, 0, 0.5); }
-  50%      { box-shadow: 0 0 14px rgba(180, 0, 0, 0.95); }
+  50%      { box-shadow: 0 0 12px rgba(180, 0, 0, 0.9); }
+}
+
+/* 行容器 */
+.pf1-dying-panel .pf1-dying-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
+  min-height: 18px;
 }
 
 /* ============================================================
-   第一行：启用 + 状态
+   第一行：房规 / 阈值 / 状态
    ============================================================ */
-.pf1-dying-row-1 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 
-.pf1-dying-enable {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+.pf1-dying-panel .pf1-dying-enable {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
   font-weight: bold;
-  font-size: 11px;
+  font-size: 12px;
   color: #7a3b3b;
   cursor: pointer;
   user-select: none;
-  white-space: nowrap;
+  flex-shrink: 0;
+  border: none !important;
+  background: transparent !important;
 }
-.pf1-dying-enable input { margin: 0; cursor: pointer; }
+.pf1-dying-panel .pf1-dying-enable input {
+  margin: 0 !important;
+  cursor: pointer;
+  width: auto !important;
+}
 
-/* 状态文字 */
-.pf1-dying-status {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  font-weight: bold;
-  font-size: 13px;
-  line-height: 1;
+.pf1-dying-panel .pf1-dying-info {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-left: auto;
+  flex-shrink: 0;
 }
-.pf1-dying-status .dying-status-label {
-  letter-spacing: 0.5px;
+
+.pf1-dying-panel .pf1-dying-threshold {
+  display: inline-block !important;
+  font-size: 11px !important;
+  color: #666 !important;
+  white-space: nowrap;
+  cursor: help;
 }
-.pf1-dying-status .dying-status-sub {
+.pf1-dying-panel .pf1-dying-threshold b {
+  color: #7a3b3b !important;
+  font-size: 12px !important;
+}
+
+.pf1-dying-panel .pf1-dying-status {
+  display: inline-block !important;
+  height: 16px !important;
+  padding: 0 7px !important;
+  margin: 0 !important;
+  border-radius: 8px;
   font-size: 10px;
-  font-weight: normal;
-  color: #888;
-  letter-spacing: 0;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  line-height: 16px !important;
+  flex-shrink: 0;
+  border: none !important;
 }
-.pf1-dying-status[data-state="0"]     .dying-status-label { color: #666; }
-.pf1-dying-status[data-state="dying"] .dying-status-label { color: #c87000; }
-.pf1-dying-status[data-state="door"]  .dying-status-label {
-  color: #b00000;
-  text-shadow: 0 0 4px rgba(200, 0, 0, 0.6);
+.pf1-dying-panel .pf1-dying-status[data-state="0"]     { background: #e5e5e5 !important; color: #666 !important; }
+.pf1-dying-panel .pf1-dying-status[data-state="dying"] { background: #e08a00 !important; color: #fff !important; }
+.pf1-dying-panel .pf1-dying-status[data-state="door"] {
+  background: #b00000 !important;
+  color: #fff !important;
   animation: pf1-dying-pulse 1s ease-in-out infinite;
 }
 
 /* ============================================================
    第二行：按钮
    ============================================================ */
-.pf1-dying-row-2 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+
+.pf1-dying-panel .pf1-dying-row-2 {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
 }
 
-.pf1-dying-buttons {
-  display: inline-flex;
-  gap: 2px;
+.pf1-dying-panel .pf1-dying-buttons {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  gap: 1px !important;
+  width: auto !important;
+  margin: 0 !important;
+  flex-shrink: 0;
 }
-.dying-count-btn {
-  min-width: 22px;
-  height: 20px;
-  padding: 0 6px;
-  font-size: 11px;
-  font-weight: bold;
-  line-height: 1;
-  border: 1px solid #a08080;
-  background: #f4ecec;
-  color: #666;
+
+/* 强制所有按钮 inline */
+.pf1-dying-panel .dying-count-btn,
+.pf1-dying-panel .dying-act {
+  display: inline-block !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 20px !important;
+  margin: 0 !important;
+  padding: 0 7px !important;
+  font-size: 11px !important;
+  font-weight: bold !important;
+  line-height: 18px !important;
+  vertical-align: middle;
   border-radius: 2px;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  flex: 0 0 auto !important;
+  white-space: nowrap;
 }
-.dying-count-btn:hover { background: #ece0e0; color: #333; }
-.dying-count-btn.active {
-  background: #c87000;
-  color: #fff;
-  border-color: #c87000;
-  box-shadow: 0 0 4px rgba(200, 120, 0, 0.6);
+
+/* 计数按钮 */
+.pf1-dying-panel .dying-count-btn {
+  min-width: 22px !important;
+  border: 1px solid #a08080 !important;
+  background: #f4ecec !important;
+  color: #666 !important;
 }
-.dying-count-btn.dying-count-door {
-  font-size: 10px;
-  padding: 0 7px;
-  letter-spacing: 0.5px;
+.pf1-dying-panel .dying-count-btn:hover {
+  background: #ece0e0 !important;
+  color: #333 !important;
 }
-.dying-count-btn.dying-count-door.active {
-  background: #b00000;
-  border-color: #b00000;
-  box-shadow: 0 0 8px rgba(180, 0, 0, 0.9);
+.pf1-dying-panel .dying-count-btn.active {
+  background: #c87000 !important;
+  color: #fff !important;
+  border-color: #c87000 !important;
+}
+.pf1-dying-panel .dying-count-btn.dying-count-door.active {
+  background: #b00000 !important;
+  border-color: #b00000 !important;
   animation: pf1-dying-pulse 1s ease-in-out infinite;
 }
 
-/* 通用操作按钮 */
-.dying-act {
-  height: 20px;
-  padding: 0 8px;
-  font-size: 11px;
-  line-height: 1;
-  border: 1px solid #7a3b3b;
-  background: #f7eaea;
-  color: #7a3b3b;
-  border-radius: 2px;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+/* 操作按钮 */
+.pf1-dying-panel .dying-act {
+  border: 1px solid #7a3b3b !important;
+  background: #f7eaea !important;
+  color: #7a3b3b !important;
 }
-.dying-act:hover:not(:disabled) { background: #7a3b3b; color: #fff; }
-.dying-act:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* 稳定按钮的激活状态 */
-.dying-stab-btn.active {
-  background: #2a7;
-  border-color: #2a7;
-  color: #fff;
-  box-shadow: 0 0 4px rgba(30, 160, 100, 0.5);
+.pf1-dying-panel .dying-act:hover:not(:disabled) {
+  background: #7a3b3b !important;
+  color: #fff !important;
+}
+.pf1-dying-panel .dying-act:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
 }
 
-/* 豁免按钮 */
-.dying-save-btn {
-  background: #f4d0d0;
-  border-color: #b00000;
-  color: #b00000;
-  font-weight: bold;
-}
-.dying-save-btn:hover {
-  background: #b00000;
-  color: #fff;
+/* 稳定激活 */
+.pf1-dying-panel .dying-stab-btn.active {
+  background: #2a7 !important;
+  border-color: #2a7 !important;
+  color: #fff !important;
 }
 
-/* 阈值 */
-.pf1-dying-threshold {
-  font-size: 10px;
-  color: #666;
+/* 豁免 */
+.pf1-dying-panel .dying-save-btn {
+  background: #f4d0d0 !important;
+  border-color: #b00000 !important;
+  color: #b00000 !important;
   margin-left: auto;
-  white-space: nowrap;
-  cursor: help;
 }
-.pf1-dying-threshold b {
-  color: #7a3b3b;
-  font-size: 11px;
+.pf1-dying-panel .dying-save-btn:hover {
+  background: #b00000 !important;
+  color: #fff !important;
 }
 
 /* ============================================================
@@ -188,6 +225,3 @@
   margin: 0;
   line-height: 1.5;
 }
-
-/* 死门豁免聊天卡 */
-.pf1-dying-save p { margin: 2px 0; }
