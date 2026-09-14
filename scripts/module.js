@@ -103,6 +103,13 @@ function isInDying(actor) { return actor.getFlag(MODULE_ID, "inDying") === true;
 function getDyingCount(actor) { return actor.getFlag(MODULE_ID, "dyingCount") ?? 0; }
 function isStabilized(actor) { return actor.getFlag(MODULE_ID, "stabilized") === true; }
 
+function isDead(actor) {
+  if (actor.statuses?.has?.("dead")) return true;
+  if (actor.effects?.some?.(e => e.statuses?.has?.("dead"))) return true;
+  const hp = actor.system?.attributes?.hp?.value ?? 0;
+  return hp <= -10;
+}
+
 function getStatusInfo(actor) {
   if (!isInDying(actor)) {
     return { code: "0", label: "正常", tooltip: "未处于濒死" };
@@ -110,10 +117,25 @@ function getStatusInfo(actor) {
   const count = getDyingCount(actor);
   const stabilized = isStabilized(actor);
   if (count >= 3) {
-    return { code: "door", label: "死门", tooltip: `死门 · ${stabilized ? "已稳定" : "每轮需豁免"}` };
+    return {
+      code: "door",
+      label: "死门",
+      tooltip: `死门 · ${stabilized ? "已稳定（不再强制豁免）" : "每轮需豁免"}`
+    };
   }
   const sub = stabilized ? "已稳定" : "每轮+1";
   return { code: "dying", label: `濒死 ${count}`, tooltip: `濒死 计数${count} · ${sub}` };
+}
+
+/* ============================================================
+ * 清理濒死状态
+ * ============================================================ */
+
+async function clearDyingState(actor) {
+  await actor.unsetFlag(MODULE_ID, "inDying");
+  await actor.unsetFlag(MODULE_ID, "dyingCount");
+  await actor.unsetFlag(MODULE_ID, "stabilized");
+  await actor.unsetFlag(MODULE_ID, "deathsDoorRounds");
 }
 
 /* ============================================================
@@ -166,9 +188,10 @@ function buildPanelHtml(actor) {
           <button type="button" class="dying-count-btn" data-count="2">2</button>
           <button type="button" class="dying-count-btn dying-count-door" data-count="3">死门</button>
         </span>
-        <button type="button" class="dying-act dying-stab-btn" title="切换稳定状态">稳定</button>
+        <button type="button" class="dying-act dying-stab-btn" title="稳定（死门时点击可终止后续豁免）">稳定</button>
         <button type="button" class="dying-act dying-heal-btn" title="输入治疗量并计算">治疗</button>
         <button type="button" class="dying-act dying-calc-btn" title="按当前 HP 计算初始计数">按HP</button>
+        <button type="button" class="dying-act dying-save-btn" title="手动触发死门豁免" style="display:none;">豁免</button>
       </div>
     </div>
   `;
@@ -195,6 +218,9 @@ function updatePanelUI($panel, actor) {
   if (stabilized) $stab.addClass("active").text("稳定✓");
   else $stab.removeClass("active").text("稳定");
   $stab.prop("disabled", !isInDying(actor));
+
+  // 死门时显示手动豁免按钮
+  $panel.find(".dying-save-btn").toggle(enabled && count >= 3 && !stabilized);
 }
 
 /* ============================================================
@@ -235,9 +261,9 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     if (val < 3) await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
     if (!isInDying(actor)) await actor.setFlag(MODULE_ID, "inDying", true);
     updatePanelUI($panel, actor);
-    // 点击"死门"按钮 → 立即触发 PF1E 原生 fort 豁免对话框
+    // 点击"死门" → 手动发一张豁免卡片
     if (val >= 3 && (game.user.isGM || actor.isOwner)) {
-      await performDeathsDoorSave(actor);
+      await postDeathsDoorCard(actor);
     }
   });
 
@@ -248,7 +274,6 @@ Hooks.on("renderActorSheet", (app, html, data) => {
   });
 
   $panel.find(".dying-heal-btn").on("click", () => openHealDialog(actor, $panel));
-
   $panel.find(".dying-calc-btn").on("click", async () => {
     const hp = actor.system?.attributes?.hp?.value ?? 0;
     if (hp > 0) {
@@ -262,6 +287,10 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
     updatePanelUI($panel, actor);
     ui.notifications.info(`初始濒死计数：${initial}`);
+  });
+
+  $panel.find(".dying-save-btn").on("click", async () => {
+    if (game.user.isGM || actor.isOwner) await postDeathsDoorCard(actor);
   });
 });
 
@@ -397,7 +426,7 @@ async function applyHeal(actor, heal) {
 
   if (newCount === 0) {
     const awakenHp = overflow + 1;
-    await actor.setFlag(MODULE_ID, "inDying", false);
+    await clearDyingState(actor);
     await actor.update({ "system.attributes.hp.value": awakenHp });
     ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
@@ -412,44 +441,87 @@ async function applyHeal(actor, heal) {
 }
 
 /* ============================================================
- * 死门强韧豁免 —— 调用 PF1E 原生对话框
+ * 死门豁免 —— 发聊天卡片，玩家点击才触发 PF1E 原生豁免
  * ============================================================ */
 
-async function performDeathsDoorSave(actor) {
+async function postDeathsDoorCard(actor) {
   const rounds = actor.getFlag(MODULE_ID, "deathsDoorRounds") ?? 0;
   const hd = getActorLevel(actor);
   const dc = 15 + Math.floor(hd / 2) + rounds;
+  const fortMod = actor.system?.attributes?.saves?.fort?.total ?? 0;
 
-  // 轮数 +1（本次豁免算作一轮）
-  await actor.setFlag(MODULE_ID, "deathsDoorRounds", rounds + 1);
+  const content = `
+    <div class="pf1-dying-door-card" data-actor-id="${actor.id}" data-dc="${dc}" data-round="${rounds + 1}">
+      <p class="pf1-dying-door-title">
+        <strong>${actor.name}</strong> 处于 <span class="door-mark">死门</span>
+      </p>
+      <p class="pf1-dying-door-info">
+        强韧豁免 DC <b>${dc}</b>
+        <span style="color:#888;">（第 ${rounds + 1} 轮 · 加值 +${fortMod}）</span>
+      </p>
+      <button type="button" class="pf1-dying-roll-save">
+        <i class="fas fa-dice-d20"></i> 掷骰
+      </button>
+    </div>
+  `;
 
-  const flavor = `死门强韧豁免（第 ${rounds + 1} 轮 · DC ${dc}）`;
-
-  // 优先调用 PF1E 原生 rollSavingThrow —— 不传 skipDialog，系统会弹出原生对话框
-  try {
-    if (typeof actor.rollSavingThrow === "function") {
-      await actor.rollSavingThrow("fort", {
-        dc: dc,
-        flavor: flavor
-      });
-      return;
-    }
-    throw new Error("no api");
-  } catch (err) {
-    // 回退：手动掷骰
-    console.warn("PF1E 濒死房规 | rollSavingThrow 不可用，使用回退方案。", err);
-    const fortMod = actor.system?.attributes?.saves?.fort?.total ?? 0;
-    const roll = new Roll("1d20 + @mod", { mod: fortMod });
-    await roll.evaluate();
-    await roll.toMessage({
-      speaker: ChatMessage.getSpeaker({ actor }),
-      flavor: flavor
-    });
-  }
+  await ChatMessage.create({
+    speaker: ChatMessage.getSpeaker({ actor }),
+    content
+  });
 }
 
 /* ============================================================
- * 回合结束：恶化 + 死门自动弹 PF1E 原生豁免
+ * 聊天卡片按钮绑定
+ * ============================================================ */
+
+Hooks.on("renderChatMessage", (message, html, data) => {
+  const $html = html instanceof jQuery ? html : $(html);
+
+  $html.find(".pf1-dying-roll-save").on("click", async (e) => {
+    e.preventDefault();
+    const $card = $(e.currentTarget).closest(".pf1-dying-door-card");
+    const actorId = $card.attr("data-actor-id");
+    const dc = parseInt($card.attr("data-dc")) || 0;
+    const round = parseInt($card.attr("data-round")) || 1;
+
+    const actor = game.actors.get(actorId);
+    if (!actor) return;
+
+    // 已死 → 提示
+    if (isDead(actor)) {
+      ui.notifications.warn(`${actor.name} 已经死亡，无需豁免。`);
+      return;
+    }
+
+    // 递增轮数
+    await actor.setFlag(MODULE_ID, "deathsDoorRounds", round);
+
+    // 调用 PF1E 原生 saving throw（弹对话框，玩家点确认 → 掷骰）
+    try {
+      if (typeof actor.rollSavingThrow === "function") {
+        await actor.rollSavingThrow("fort", {
+          dc: dc,
+          flavor: `死门强韧豁免（第 ${round} 轮 · DC ${dc}）`
+        });
+      } else {
+        throw new Error("no api");
+      }
+    } catch (err) {
+      // 回退：手动掷骰
+      const fortMod = actor.system?.attributes?.saves?.fort?.total ?? 0;
+      const roll = new Roll("1d20 + @mod", { mod: fortMod });
+      await roll.evaluate();
+      await roll.toMessage({
+        speaker: ChatMessage.getSpeaker({ actor }),
+        flavor: `死门强韧豁免（第 ${round} 轮 · DC ${dc}）`
+      });
+    }
+  });
+});
+
+/* ============================================================
+ * 回合结束：恶化 + 死门聊天卡片
  * ============================================================ */
 
 Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
@@ -457,15 +529,25 @@ Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
     const actor = combatant.actor;
     if (!actor || actor.type !== "character") continue;
     if (!isEnabled(actor)) continue;
+
+    // 已死 → 清理死门数据
+    if (isDead(actor)) {
+      if (isInDying(actor)) await clearDyingState(actor);
+      continue;
+    }
+
     if (!isInDying(actor)) continue;
 
     const count = getDyingCount(actor);
     const stabilized = isStabilized(actor);
 
-    // 死门：自动弹出 PF1E 原生豁免对话框
+    // 死门
     if (count >= 3) {
+      // 稳定 → 不再发豁免卡片
+      if (stabilized) continue;
+      // 未稳定 → 发聊天卡片
       if (game.user.isGM || actor.isOwner) {
-        await performDeathsDoorSave(actor);
+        await postDeathsDoorCard(actor);
       }
       continue;
     }
@@ -505,13 +587,16 @@ Hooks.on("updateActor", async (actor, change, options, userId) => {
   if (oldHp === undefined || newHp === undefined) return;
   if (!isEnabled(actor)) return;
 
+  // 已死 → 清理
+  if (isDead(actor)) {
+    if (isInDying(actor)) await clearDyingState(actor);
+    return;
+  }
+
   if (newHp <= 0 && oldHp > 0 && !isInDying(actor)) {
     await enterDying(actor);
   } else if (newHp > 0 && oldHp <= 0 && isInDying(actor)) {
-    await actor.setFlag(MODULE_ID, "inDying", false);
-    await actor.setFlag(MODULE_ID, "dyingCount", 0);
-    await actor.setFlag(MODULE_ID, "stabilized", false);
-    await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
+    await clearDyingState(actor);
   }
 });
 
@@ -531,6 +616,7 @@ Hooks.once("ready", () => {
     console.log("角色:", actor.name);
     console.log("启用:", isEnabled(actor), "inDying:", isInDying(actor));
     console.log("count:", getDyingCount(actor), "stabilized:", isStabilized(actor));
+    console.log("dead:", isDead(actor));
     console.log("职业条目:", getClassEntries(actor));
     const info = getHealThresholdInfo(actor);
     console.log("治疗阈值:", info.total, "|", info.details);
