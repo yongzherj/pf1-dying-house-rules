@@ -1,6 +1,5 @@
 /* ============================================================
  * PF1E 濒死与死门房规（半自动版）
- * 默认关闭，勾选启用后对单张角色卡生效
  * ============================================================ */
 
 const MODULE_ID = "pf1-dying-house-rules";
@@ -89,7 +88,7 @@ function getHealThreshold(actor) {
 }
 
 /* ============================================================
- * 规则
+ * 规则 / Flags
  * ============================================================ */
 
 function getInitialDyingCount(negativeHp) {
@@ -99,29 +98,10 @@ function getInitialDyingCount(negativeHp) {
   return 0;
 }
 
-/* ============================================================
- * Flags 读取
- * ============================================================ */
-
-function isEnabled(actor) {
-  return actor.getFlag(MODULE_ID, "enabled") === true;
-}
-
-function isInDying(actor) {
-  return actor.getFlag(MODULE_ID, "inDying") === true;
-}
-
-function getDyingCount(actor) {
-  return actor.getFlag(MODULE_ID, "dyingCount") ?? 0;
-}
-
-function isStabilized(actor) {
-  return actor.getFlag(MODULE_ID, "stabilized") === true;
-}
-
-/* ============================================================
- * 状态信息
- * ============================================================ */
+function isEnabled(actor) { return actor.getFlag(MODULE_ID, "enabled") === true; }
+function isInDying(actor) { return actor.getFlag(MODULE_ID, "inDying") === true; }
+function getDyingCount(actor) { return actor.getFlag(MODULE_ID, "dyingCount") ?? 0; }
+function isStabilized(actor) { return actor.getFlag(MODULE_ID, "stabilized") === true; }
 
 function getStatusInfo(actor) {
   if (!isInDying(actor)) {
@@ -129,20 +109,11 @@ function getStatusInfo(actor) {
   }
   const count = getDyingCount(actor);
   const stabilized = isStabilized(actor);
-
   if (count >= 3) {
-    return {
-      code: "door",
-      label: "死门",
-      tooltip: `死门 · ${stabilized ? "已稳定" : "每轮需豁免"}`
-    };
+    return { code: "door", label: "死门", tooltip: `死门 · ${stabilized ? "已稳定" : "每轮需豁免"}` };
   }
   const sub = stabilized ? "已稳定" : "每轮+1";
-  return {
-    code: "dying",
-    label: `濒死 ${count}`,
-    tooltip: `濒死 计数${count} · ${sub}`
-  };
+  return { code: "dying", label: `濒死 ${count}`, tooltip: `濒死 计数${count} · ${sub}` };
 }
 
 /* ============================================================
@@ -168,7 +139,7 @@ function findSummaryTarget($html) {
 }
 
 /* ============================================================
- * 面板构建
+ * 面板
  * ============================================================ */
 
 function buildPanelHtml(actor) {
@@ -190,15 +161,14 @@ function buildPanelHtml(actor) {
       </div>
       <div class="pf1-dying-row pf1-dying-row-2">
         <span class="pf1-dying-buttons" role="group">
-          <button type="button" class="dying-count-btn" data-count="0" title="计数 0">0</button>
-          <button type="button" class="dying-count-btn" data-count="1" title="计数 1">1</button>
-          <button type="button" class="dying-count-btn" data-count="2" title="计数 2">2</button>
-          <button type="button" class="dying-count-btn dying-count-door" data-count="3" title="死门">死门</button>
+          <button type="button" class="dying-count-btn" data-count="0">0</button>
+          <button type="button" class="dying-count-btn" data-count="1">1</button>
+          <button type="button" class="dying-count-btn" data-count="2">2</button>
+          <button type="button" class="dying-count-btn dying-count-door" data-count="3">死门</button>
         </span>
         <button type="button" class="dying-act dying-stab-btn" title="切换稳定状态">稳定</button>
         <button type="button" class="dying-act dying-heal-btn" title="输入治疗量并计算">治疗</button>
         <button type="button" class="dying-act dying-calc-btn" title="按当前 HP 计算初始计数">按HP</button>
-        <button type="button" class="dying-act dying-save-btn" title="死门强韧豁免">豁免</button>
       </div>
     </div>
   `;
@@ -225,12 +195,6 @@ function updatePanelUI($panel, actor) {
   if (stabilized) $stab.addClass("active").text("稳定✓");
   else $stab.removeClass("active").text("稳定");
   $stab.prop("disabled", !isInDying(actor));
-
-  $panel.find(".dying-save-btn").toggle(enabled && count >= 3);
-
-  // 未启用：只显示第一行的开关
-  $panel.find(".pf1-dying-info").toggle(enabled);
-  $panel.find(".pf1-dying-row-2").toggle(enabled);
 }
 
 /* ============================================================
@@ -254,7 +218,6 @@ Hooks.on("renderActorSheet", (app, html, data) => {
   const $panel = $html.find(".pf1-dying-panel");
   updatePanelUI($panel, actor);
 
-  /* 启用 */
   $panel.find(".dying-enabled-toggle").on("change", async (e) => {
     const on = e.target.checked;
     await actor.setFlag(MODULE_ID, "enabled", on);
@@ -265,7 +228,6 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     updatePanelUI($panel, actor);
   });
 
-  /* 计数按钮 */
   $panel.find(".dying-count-btn").on("click", async (e) => {
     const val = parseInt(e.currentTarget.dataset.count) || 0;
     await actor.setFlag(MODULE_ID, "dyingCount", val);
@@ -273,19 +235,20 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     if (val < 3) await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
     if (!isInDying(actor)) await actor.setFlag(MODULE_ID, "inDying", true);
     updatePanelUI($panel, actor);
+    // 点击"死门"按钮 → 立即触发 PF1E 原生 fort 豁免对话框
+    if (val >= 3 && (game.user.isGM || actor.isOwner)) {
+      await performDeathsDoorSave(actor);
+    }
   });
 
-  /* 稳定 */
   $panel.find(".dying-stab-btn").on("click", async () => {
     if (!isInDying(actor)) return;
     await actor.setFlag(MODULE_ID, "stabilized", !isStabilized(actor));
     updatePanelUI($panel, actor);
   });
 
-  /* 治疗 */
   $panel.find(".dying-heal-btn").on("click", () => openHealDialog(actor, $panel));
 
-  /* 按 HP */
   $panel.find(".dying-calc-btn").on("click", async () => {
     const hp = actor.system?.attributes?.hp?.value ?? 0;
     if (hp > 0) {
@@ -299,12 +262,6 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     await actor.setFlag(MODULE_ID, "deathsDoorRounds", 0);
     updatePanelUI($panel, actor);
     ui.notifications.info(`初始濒死计数：${initial}`);
-  });
-
-  /* 豁免 */
-  $panel.find(".dying-save-btn").on("click", async () => {
-    await performDeathsDoorSave(actor);
-    updatePanelUI($panel, actor);
   });
 });
 
@@ -455,7 +412,7 @@ async function applyHeal(actor, heal) {
 }
 
 /* ============================================================
- * 死门强韧豁免
+ * 死门强韧豁免 —— 调用 PF1E 原生对话框
  * ============================================================ */
 
 async function performDeathsDoorSave(actor) {
@@ -463,44 +420,36 @@ async function performDeathsDoorSave(actor) {
   const hd = getActorLevel(actor);
   const dc = 15 + Math.floor(hd / 2) + rounds;
 
+  // 轮数 +1（本次豁免算作一轮）
   await actor.setFlag(MODULE_ID, "deathsDoorRounds", rounds + 1);
 
-  const flavor = `死门强韧豁免（DC ${dc}，第 ${rounds + 1} 轮）`;
-  const fortMod = actor.system?.attributes?.saves?.fort?.total ?? 0;
+  const flavor = `死门强韧豁免（第 ${rounds + 1} 轮 · DC ${dc}）`;
 
-  let total = 0;
-
+  // 优先调用 PF1E 原生 rollSavingThrow —— 不传 skipDialog，系统会弹出原生对话框
   try {
     if (typeof actor.rollSavingThrow === "function") {
-      const result = await actor.rollSavingThrow("fort", {
+      await actor.rollSavingThrow("fort", {
         dc: dc,
-        skipDialog: true,
-        chatMessage: true,
-        flavor
+        flavor: flavor
       });
-      total = result?.total ?? result?.roll?.total ?? result?.rolls?.[0]?.total ?? 0;
-    } else {
-      throw new Error("no api");
+      return;
     }
+    throw new Error("no api");
   } catch (err) {
+    // 回退：手动掷骰
+    console.warn("PF1E 濒死房规 | rollSavingThrow 不可用，使用回退方案。", err);
+    const fortMod = actor.system?.attributes?.saves?.fort?.total ?? 0;
     const roll = new Roll("1d20 + @mod", { mod: fortMod });
     await roll.evaluate();
-    total = roll.total;
     await roll.toMessage({
       speaker: ChatMessage.getSpeaker({ actor }),
-      flavor
+      flavor: flavor
     });
   }
-
-  if (total < dc) {
-    await actor.toggleStatusEffect("dead", { active: true });
-  }
-
-  return { total, dc };
 }
 
 /* ============================================================
- * 回合结束：恶化
+ * 回合结束：恶化 + 死门自动弹 PF1E 原生豁免
  * ============================================================ */
 
 Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
@@ -513,14 +462,15 @@ Hooks.on("combatRound", async (combat, updateData, updateOptions) => {
     const count = getDyingCount(actor);
     const stabilized = isStabilized(actor);
 
+    // 死门：自动弹出 PF1E 原生豁免对话框
     if (count >= 3) {
-      ChatMessage.create({
-        speaker: ChatMessage.getSpeaker({ actor }),
-        content: `<p><strong>${actor.name}</strong> 处于死门，请点击角色卡的「豁免」进行强韧豁免。</p>`
-      });
+      if (game.user.isGM || actor.isOwner) {
+        await performDeathsDoorSave(actor);
+      }
       continue;
     }
 
+    // 濒死 + 未稳定 → +1
     if (!stabilized) {
       const newCount = count + 1;
       await actor.setFlag(MODULE_ID, "dyingCount", newCount);
@@ -566,7 +516,7 @@ Hooks.on("updateActor", async (actor, change, options, userId) => {
 });
 
 /* ============================================================
- * 初始化与调试
+ * 初始化
  * ============================================================ */
 
 Hooks.once("init", () => {
@@ -579,10 +529,8 @@ Hooks.once("ready", () => {
     if (!actor) return console.warn("无目标角色");
     console.log("=== PF1E 濒死房规调试 ===");
     console.log("角色:", actor.name);
-    console.log("启用:", isEnabled(actor));
-    console.log("inDying:", isInDying(actor));
-    console.log("count:", getDyingCount(actor));
-    console.log("stabilized:", isStabilized(actor));
+    console.log("启用:", isEnabled(actor), "inDying:", isInDying(actor));
+    console.log("count:", getDyingCount(actor), "stabilized:", isStabilized(actor));
     console.log("职业条目:", getClassEntries(actor));
     const info = getHealThresholdInfo(actor);
     console.log("治疗阈值:", info.total, "|", info.details);
